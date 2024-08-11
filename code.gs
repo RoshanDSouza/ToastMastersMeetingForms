@@ -113,7 +113,7 @@ function onFormSubmit(e) {
   Logger.log("Starting Form submit")
   // Get the response that was submitted.
   var formResponse = e.response;
-  Logger.log("Reached OnFormSubmit")
+  Logger.log("Form submitted by " + formResponse.getRespondentEmail())
   // Get the items (i.e., responses to various questions)
   // that were submitted.
   var itemResponses = formResponse.getItemResponses();
