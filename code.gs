@@ -11,14 +11,39 @@
 
 //@OnlyCurrentDoc
 
-
-
 var MembersList = [];
 //The below vars should be changed for the feedback form 
-var SSId= "1R-DvNXF1f4kdnVsI79e1RH1A1d25AqK4SYoOFBYkCDg"; // Id of form that stores data
-var TitleForSenderMemberDropDown = "Select your name"; // Title on the form, to get the name 
+var FormId = "1-QXFTciiobLfw3AqbdERfFSFCcuCOwtu3F6baELsRQk"
+var SSId= "1f6X7ZYzoOXw_3Es7JO_U04hQTGamZ0pu2QlFknR0USw"; // Id of spreadsheet that stores data
+var TitleForSenderMemberTextBox = "Enter your name"; // Title on the form, to get the name 
 var TitleForRecepientMemberDropDown = "Select the member for feedback" ; // Title on the form, to select the name of the member to whom feedback 
 var TitleForFeedbackText = "Feedback"; // Title on the form, where the feedback will be provided
+
+function openForm() {
+  Logger.log("Opening Form");
+  var form = FormApp.openById(FormId);
+  form.setAcceptingResponses(true);
+}
+
+function closeForm() {
+  Logger.log("Closing Form");
+  var form = FormApp.openById(FormId);
+  form.setAcceptingResponses(false);
+}
+
+function onFormOpen(e) {
+  Logger.log("Starting Open");
+  var today = new Date();
+  var isFriday = today.getDay() === 5;
+  var hour = today.getHours();
+
+  if ((isFriday) &&  (hour >= 18) && (hour <= 22 ) ) {
+    openForm()
+    loadNames()
+  } else {
+    closeForm()
+  }
+}
 
 
 function getMembersFromSheet() {
@@ -28,7 +53,7 @@ function getMembersFromSheet() {
   for (var row in values) {
       var name = values[row][0];
       var email = values[row][1];
-      Logger.log(values[row][0] + ":" + values[row][1]);
+      //Logger.log(values[row][0] + ":" + values[row][1]);
       if ((name != "") && (row != "")) {
         var Member = {}
         Member.Name = name
@@ -39,23 +64,37 @@ function getMembersFromSheet() {
   return MembersList
 }
 
+
+//Get list of FormIds
 function getFormIds(form) {
   var items = form.getItems();
   var itemIds = [];
   for (i = 0 ; i < items.length; i=i+1) {
-    Logger.log(items[i].getTitle())
-    if ( (items[i].getTitle() == TitleForRecepientMemberDropDown ) || ( items[i].getTitle() == TitleForSenderMemberDropDown)  ){
+    //Logger.log(items[i].getTitle())
+    if ( (items[i].getTitle() == TitleForRecepientMemberDropDown )   ){
         itemIds.push(items[i].getId());
-        Logger.log(items[i].getId().toString());
+        //Logger.log(items[i].getId().toString());
     }
   }
   return itemIds;
+}
 
+function getSenderNameFormId(form) {
+  var senderFormId = "";
+  var items = form.getItems();
+  for (i = 0 ; i < items.length; i=i+1) {
+    if (items[i].getTitle() == TitleForSenderMemberDropDown) {
+        senderFormId = items[i].getId();
+        Logger.log("Sender form item id:" + senderFormId);
+    }
+  }
+
+  return senderFormId;
 }
 
 function loadNames() {
   
-  var form = FormApp.getActiveForm();
+  var form = FormApp.openById(FormId);
   Logger.log("Loading Names");
   //var items = form.getItems()
   //Logger.log(items[0].getTitle() + ":" + items[0].getId().toString());
@@ -65,13 +104,14 @@ function loadNames() {
   
   for (var i = 0; i < memberNames.length; i = i + 1) {
     listMembersName.push(memberNames[i].Name)
-    Logger.log(memberNames[i].Name)
+    //Logger.log(memberNames[i].Name)
   } 
   var itemIds = getFormIds(form);
   if (itemIds.length > 0) {
     for (var i=0 ; i< itemIds.length; i=i+1) {
+
       var item = form.getItemById(itemIds[i]);
-      item.asListItem().setChoiceValues([""])
+      item.asListItem().setChoiceValues([""]);
       item.asListItem().setChoiceValues(listMembersName);
     } 
   }else {
@@ -85,7 +125,7 @@ function loadNames() {
 // using Apps Script.
 function createFormSubmitTrigger() {
  
-  Logger.log("Reached Form submit")
+  //Logger.log("Reached Form submit")
   // Get the form object.
   var form = FormApp.getActiveForm();
 
@@ -110,10 +150,13 @@ function createFormSubmitTrigger() {
 // submitted by the user.
 function onFormSubmit(e) {
  
-  Logger.log("Starting Form submit")
+  //Logger.log("Starting Form submit")
+  
   // Get the response that was submitted.
   var formResponse = e.response;
-  Logger.log("Form submitted by " + formResponse.getRespondentEmail())
+  var formSenderEmail = formResponse.getRespondentEmail();
+  
+  Logger.log("Form submitted by " + formSenderEmail)
   // Get the items (i.e., responses to various questions)
   // that were submitted.
   var itemResponses = formResponse.getItemResponses();
@@ -127,55 +170,100 @@ function onFormSubmit(e) {
   //   Logger.log("Found sender " + senderName);
   // }
 
-  var emailSubject = "Feedback from :";
+  getMembersFromSheet();
   var destnEmail = "";
-  var memberNames = getMembersFromSheet();
-  // Put together the email body by appending all the
-  // questions & responses to the variable emailBody.
-  var senderName = "";
   var recepientName = "";
+  var senderName = "";
+  var feedback = "";
+  var emailSubject = "Feedback from " ;
   itemResponses.forEach(function(itemResponse) {
-    var feedback = "";
- 
-    if (itemResponse.getItem().getTitle()== TitleForSenderMemberDropDown ) {
-        senderName = itemResponse.getResponse();
-        if (senderName == "" ) {
-          Logger.log("Failed to find Senders Name " );
-        } else {
-          Logger.log("Sender Name:" + senderName + " . DoNot Reply");
-          emailSubject = emailSubject + senderName;
-        }
-    }
+     
+      var formTitle = itemResponse.getItem().getTitle().trim();
+      var formResponseText = itemResponse.getResponse().trim();
+      //Logger.log("Reading item Response, Name:" + formTitle +  " value:" + formResponseText );
 
-    if (itemResponse.getItem().getTitle()== TitleForRecepientMemberDropDown ) {
-        if (itemResponse.getResponse() != "") {
-          recepientName = itemResponse.getResponse();
-          destnEmail = getMemberEmail(itemResponse.getResponse());
-          if (destnEmail == "" ) {
-            Logger.log("Failed to find Email for " + itemResponse.getResponse());
-          } else {
-            feedback = "";
-          }
-        }
-        
-    }
+      switch (formTitle)  {
+          case TitleForSenderMemberTextBox:
+              senderName = formResponseText;
+              break;
+          case TitleForRecepientMemberDropDown:
+              if (formResponseText != "") {
+                recepientName = formResponseText
+                destnEmail = getMemberEmail(recepientName);
+                if (destnEmail == "" ) {
+                  Logger.log("Failed to find Email for " + recepientName);
+                } else {
+                  feedback = "";
+                }
+              }
+              break;
+          case TitleForFeedbackText:
+              feedback = formResponseText;
+              var emailBody = "Hi "+ recepientName + ", \n\n A member " + senderName + " has sent you the following feedback :\n\n" + feedback + "\n\n LakeLine Toastmasters Automated Service.\n\nPlease DONOT Reply back.";
+          
+              if ((destnEmail != "") && (feedback != "") ) {
+                  Logger.log("Feedback sent to " + recepientName + " for the email " + destnEmail + " from " + senderName + " via email " + formSenderEmail)
+                  sendEmail(destnEmail, emailBody, emailSubject + ": " + senderName)
+                  recepientName = "";
+                  destnEmail = "";
+                  feedback = "";
+              } 
+             
+              break;
+          default:
+              Logger.log("Found wrong form value");
+              break;
+      }
 
-    if (itemResponse.getItem().getTitle()== TitleForFeedbackText ) {
-        feedback = itemResponse.getResponse();
-        var emailBody = "Hi "+ recepientName + ", \n\n  You have received the following feedback :\n\n" + feedback + "\n\n LakeLine Toastmasters Automated Service.\n\nPlease DONOT Reply back.";
-        recepientName = "";
-        if ((destnEmail != "") && (feedback != "") ) {
-            sendEmail(destnEmail, emailBody, emailSubject)
-        } 
-         destnEmail = "";
-    }
-  });
-
+  }
+  )
   //delete all responses
   var form = FormApp.getActiveForm();
   form.deleteAllResponses();
   
 }
+
+    
+    // if (formTitle == TitleForSenderMemberTextBox ) {
+    //     Logger.log("Item Response for sender:" + formResponseText );
+    //     senderName = formResponseText;
+    //     if (senderName == "" ) {
+    //       Logger.log("Failed to find Senders Name " );
+    //     } else {
+    //       // Logger.log("Sender Name:" + senderName );
+    //       emailSubject = emailSubject + senderName;
+    //     }
+    // } else {
+    //   Logger.log("Sender name not detected")
+    // }
+
+  //   if (itemResponse.getItem().getTitle()== TitleForRecepientMemberDropDown ) {
+  //       if (itemResponse.getResponse() != "") {
+  //         recepientName = itemResponse.getResponse();
+  //         destnEmail = getMemberEmail(itemResponse.getResponse());
+  //         if (destnEmail == "" ) {
+  //           Logger.log("Failed to find Email for " + itemResponse.getResponse());
+  //         } else {
+  //           feedback = "";
+  //         }
+  //       }
+        
+  //   }
+
+  //   if (itemResponse.getItem().getTitle()== TitleForFeedbackText ) {
+  //       feedback = itemResponse.getResponse();
+  //       var emailBody = "Hi "+ recepientName + ", \n\n  You have received the following feedback :\n\n" + feedback + "\n\n LakeLine Toastmasters Automated Service.\n\nPlease DONOT Reply back.";
+        
+  //       if ((destnEmail != "") && (feedback != "") ) {
+  //           Logger.log("Feedback sent to " + recepientName + " for the email " + destnEmail + " from " + senderName + " via email " + formSenderEmail)
+  //           sendEmail(destnEmail, emailBody, emailSubject)
+  //       } 
+  //       recepientName = "";
+  //       destnEmail = "";
+  //   }
+  // });
+
+
 
 function getMemberEmail(name) {
   if (MembersList.length > 0 ) {
