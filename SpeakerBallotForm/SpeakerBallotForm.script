@@ -1,0 +1,34 @@
+var FormId = "YourSpeakerBallotFormId"
+
+function openForm() {
+  Logger.log("Opening Form");
+  var form = FormApp.openById(FormId);
+  form.setAcceptingResponses(true);
+}
+
+function closeForm() {
+  Logger.log("Closing Form");
+  var form = FormApp.openById(FormId);
+  form.setAcceptingResponses(false);
+  form.deleteAllResponses();
+}
+
+function onFormOpen(e) {
+  Logger.log("Starting Open");
+  var today = new Date();
+  var isFriday = today.getDay() === 5;
+  var hour = today.getHours();
+
+  if ((isFriday) &&  (hour >= 15) && (hour <= 22 ) ) {
+    openForm()
+  } else {
+    closeForm()
+  }
+}
+
+function createTimeDrivenTriggers() {
+  ScriptApp.newTrigger('onFormOpen')
+           .timeBased()
+           .everyHours(1)
+           .create();
+}
