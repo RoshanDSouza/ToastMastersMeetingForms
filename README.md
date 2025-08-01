@@ -13,4 +13,4 @@ The aim of this project is to eliminate the wasteage of paper ballots and feedba
 2. Start with the Speaker Ballot form as it is easy to setup.
 
 ## Disclaimer
-The code and the instructions in this form are provided as is and I don't take any responsibility for it's authenticity or misuse.
+The code and the instructions in this form are provided as is and I am not responsibile for it's misuse. Please use this at your own risk.
