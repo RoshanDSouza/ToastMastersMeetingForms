@@ -1,0 +1,268 @@
+//Author: Roshan D'Souza (rosh.dsouza.mail@gmail.com)
+//To use this script, add the proper required scopes
+//Change the SSId it's the ID for the spreadsheet, that contains the data.
+//The spreadsheet should have 2 columns i.e. Name and Email
+//The First row is the header.
+//Then match the other variables that are below, with your form.
+// After you implement the script, run the function loadNames in the Apps Script UI
+
+// Restrict the script's authorization
+// to the form it is bound to.
+
+//@OnlyCurrentDoc
+
+var MembersList = [];
+//The below vars should be changed for the feedback form 
+var FormId = "YourFormId"
+var SSId= "IdofYourSpreadsheet"; // Id of spreadsheet that stores data
+var TitleForSenderMemberTextBox = "Enter your name"; // Title on the form, to get the name 
+var TitleForRecepientMemberDropDown = "Select the member for feedback" ; // Title on the form, to select the name of the member to whom feedback 
+var TitleForFeedbackText = "Feedback"; // Title on the form, where the feedback will be provided
+
+function openForm() {
+  Logger.log("Opening Form");
+  var form = FormApp.openById(FormId);
+  form.setAcceptingResponses(true);
+}
+
+function testSpreadsheetConnection() {
+  var sheet = SpreadsheetApp.openById(SSId);
+  Logger.log("Spreadsheet Name: " + sheet.getName());
+}
+
+function closeForm() {
+  Logger.log("Closing Form");
+  var form = FormApp.openById(FormId);
+  form.setAcceptingResponses(false);
+}
+
+function onFormOpen(e) {
+  Logger.log("Starting Open");
+  var today = new Date();
+  var isFriday = today.getDay() === 5;
+  var hour = today.getHours();
+
+  if ((isFriday) &&  (hour >= 15) && (hour <= 22 ) ) {
+    openForm()
+    loadNames()
+  } else {
+    closeForm()
+  }
+}
+
+
+function getMembersFromSheet() {
+  var data = SpreadsheetApp.openById(SSId).getSheetByName("data");
+  //start range from 2nd row and first column, get last row and last column.
+  var values = data.getRange(2, 1, data.getLastRow() -1, data.getLastColumn() ).getValues();
+  for (var row in values) {
+      var name = values[row][0];
+      var email = values[row][1];
+      //Logger.log(values[row][0] + ":" + values[row][1]);
+      if ((name != "") && (row != "")) {
+        var Member = {}
+        Member.Name = name
+        Member.Email = email
+        MembersList.push(Member)
+      }
+  }
+  return MembersList
+}
+
+
+//Get list of FormIds
+function getFormIds(form) {
+  var items = form.getItems();
+  var itemIds = [];
+  for (i = 0 ; i < items.length; i=i+1) {
+    //Logger.log(items[i].getTitle())
+    if ( (items[i].getTitle() == TitleForRecepientMemberDropDown )   ){
+        itemIds.push(items[i].getId());
+        //Logger.log(items[i].getId().toString());
+    }
+  }
+  return itemIds;
+}
+
+function getSenderNameFormId(form) {
+  var senderFormId = "";
+  var items = form.getItems();
+  for (i = 0 ; i < items.length; i=i+1) {
+    if (items[i].getTitle() == TitleForSenderMemberDropDown) {
+        senderFormId = items[i].getId();
+        Logger.log("Sender form item id:" + senderFormId);
+    }
+  }
+
+  return senderFormId;
+}
+
+function loadNames() {
+  
+  var form = FormApp.openById(FormId);
+  Logger.log("Loading Names");
+  //var items = form.getItems()
+  //Logger.log(items[0].getTitle() + ":" + items[0].getId().toString());
+
+  var memberNames = getMembersFromSheet();
+  var listMembersName = [];
+  
+  Logger.log("Total names from form: " + memberNames.length );
+  for (var i = 0; i < memberNames.length; i = i + 1) {
+    listMembersName.push(memberNames[i].Name)
+    //Logger.log(memberNames[i].Name)
+  } 
+  var itemIds = getFormIds(form);
+  if (itemIds.length > 0) {
+    for (var i=0 ; i< itemIds.length; i=i+1) {
+
+      var item = form.getItemById(itemIds[i]);
+      item.asListItem().setChoiceValues([""]);
+      item.asListItem().setChoiceValues(listMembersName);
+    } 
+  }else {
+    Logger.log("No form element found.");
+  }
+  
+}
+
+
+// Create a form submit installable trigger
+// using Apps Script.
+function createFormSubmitTrigger() {
+ 
+  //Logger.log("Reached Form submit")
+  // Get the form object.
+  var form = FormApp.getActiveForm();
+
+  // See if the trigger has already been set up.
+  // Since we know this project should only have a single trigger
+  // we'll simply check if there are more than 0 triggers. If yes,
+  // we'll assume this function was already run so we won't create
+  // a trigger.
+  var currentTriggers = ScriptApp.getProjectTriggers();
+
+  if(currentTriggers.length > 0)
+    return;
+  
+  // Create a trigger that will run the onFormSubmit function
+  // whenever the form is submitted.
+
+  ScriptApp.newTrigger("onFormSubmit").forForm(form).onFormSubmit().create();
+}
+
+// A function that is called by the form submit
+// trigger. The parameter e contains information
+// submitted by the user.
+function onFormSubmit(e) {
+ 
+  //Logger.log("Starting Form submit")
+  
+  // Get the response that was submitted.
+  var formResponse = e.response;
+  var formSenderEmail = formResponse.getRespondentEmail();
+  
+  Logger.log("Form submitted by " + formSenderEmail)
+  // Get the items (i.e., responses to various questions)
+  // that were submitted.
+  var itemResponses = formResponse.getItemResponses();
+
+  // Create a variable emailBody to store the body
+  // of the email notification to be sent.
+  // var senderName = formResponse.getItemById(1765878349).itemResponse.getResponse();
+  // if (senderName == "") {
+  //   Logger.log("Failed to find Sender Name");
+  // } else {
+  //   Logger.log("Found sender " + senderName);
+  // }
+
+  getMembersFromSheet();
+  var destnEmail = "";
+  var recepientName = "";
+  var senderName = "";
+  var feedback = "";
+  var emailSubject = "Feedback from " ;
+  itemResponses.forEach(function(itemResponse) {
+     
+      var formTitle = itemResponse.getItem().getTitle().trim();
+      var formResponseText = itemResponse.getResponse().trim();
+      //Logger.log("Reading item Response, Name:" + formTitle +  " value:" + formResponseText );
+
+      switch (formTitle)  {
+          case TitleForSenderMemberTextBox:
+              senderName = formResponseText;
+              break;
+          case TitleForRecepientMemberDropDown:
+              if (formResponseText != "") {
+                recepientName = formResponseText
+                destnEmail = getMemberEmail(recepientName);
+                if (destnEmail == "" ) {
+                  Logger.log("Failed to find Email for " + recepientName);
+                } else {
+                  feedback = "";
+                }
+              }
+              break;
+          case TitleForFeedbackText:
+              feedback = formResponseText;
+              var emailBody = "Hi "+ recepientName + ", \n\n A member " + senderName + " has sent you the following feedback :\n\n" + feedback + "\n\n LakeLine Toastmasters Automated Service.\n\nPlease DONOT Reply back.";
+          
+              if ((destnEmail != "") && (feedback != "") ) {
+                  Logger.log("Feedback sent to " + recepientName + " for the email " + destnEmail + " from " + senderName + " via email " + formSenderEmail)
+                  sendEmail(destnEmail, emailBody, emailSubject + ": " + senderName)
+                  recepientName = "";
+                  destnEmail = "";
+                  feedback = "";
+              } 
+             
+              break;
+          default:
+              Logger.log("Found wrong form value");
+              break;
+      }
+
+  }
+  )
+  //delete all responses
+  var form = FormApp.getActiveForm();
+  form.deleteAllResponses();
+  
+}
+
+
+function getMemberEmail(name) {
+  if (MembersList.length > 0 ) {
+  
+
+  var filteredValues = MembersList.filter(function(value) {
+    //Logger.log(value);
+    return value.Name == name ;
+    });
+  return filteredValues[0].Email;
+
+  } else {
+    Logger.log("No members were loaded")
+  }
+  return "";
+}
+
+function getMemberName(email) {
+  if (MembersList.length > 0 ) {
+    var filteredValues = MembersList.filter(function(value) {
+      //Logger.log(value);
+    return value.Email == email ;
+    });
+  return filteredValues[0].Name;
+
+    } else {
+      Logger.log("No members were loaded")
+    }
+    return "";
+}
+
+// A function that sends the email
+// notification.
+function sendEmail(destination, emailBody, emailSubject ) {
+  //Logger.log("Sending email to " + destination + " . subject :" + emailSubject )
+  GmailApp.sendEmail(destination, emailSubject, emailBody);
+}
