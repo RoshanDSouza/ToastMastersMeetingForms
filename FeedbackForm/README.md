@@ -17,7 +17,7 @@ You can send feedback to 4 members from a single form.
 1. Once the form is created, click on the 3 vertical dots in the top RHS. 
 2. Click on "<> Apps Script"
 3. Copy the script from [FeedbackForm.script](./FeedbackForm.script), in the script window
-4. Change the variables FormId and SSId in your scrip.
+4. Change the variables FormId and SSId in your script.
 4. Copy the contents of [appscript.json](../appscript.json)
 5. Create the triggers for your form as defined (here)[../images/FeedbackFormTriggers.jpg]
 6. Once the form is ready, test it and then send a link to the form to your members.
