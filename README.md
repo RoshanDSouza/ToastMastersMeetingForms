@@ -9,8 +9,8 @@ The aim of this project is to eliminate the wasteage of paper ballots and feedba
 3. Google sheet
 
 ### Setup
-1. The script accepts form entries an hour before the meetig starts and is open to an hour after the meeting ends. You will have to change this as per your meeting.
+1. The script accepts form entries an hour before the meeting starts and is open to an hour after the meeting ends. You will have to change this as per your meeting.
 2. Start with the Speaker Ballot form as it is easy to setup.
 
 ## Disclaimer
-The code and the instructions in this form are provided as is and I am not responsibile for it's misuse. Please use this at your own risk.
+The code and the instructions in this form are provided as is and I am not responsibile for it's misuse. Please use this at your own risk. No support is provided.
